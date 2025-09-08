@@ -6,28 +6,12 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 import os
+import sys
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
-
-# procesamos los documentos, que toma los documentos de la carpeta data/documents y los divide en chunks
-processed_documents = chunks_pdfs()
-
-# creamos el modelo de embedding
-embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
-
-# guardamos los documentos en la base de datos de chroma
-db = save_to_chroma_db(processed_documents, embedding_model)
-
-query = "¿cuales son los planetas de nuestro sistema solar?"
-# obtenemos los 3 documentos mas relevantes
-docs = db.similarity_search(query, k=3)
-print(docs)
-# unimos los documentos en un solo contexto
-context = "\n\n---\n\n".join([doc.page_content for doc in docs])
-print(context)
 
 # plantilla que nos permitirá hacer la pregunta al modelo
 PROMPT_SYSTEM = (
@@ -46,11 +30,48 @@ prompt_template = ChatPromptTemplate.from_messages([
     ("system", PROMPT_SYSTEM),
     ("human", PROMPT_HUMAN),
 ])
-messages = prompt_template.format_messages(context=context, question=query)
 
-# Import OpenAI model (temperature 0 para respuestas determinísticas)
-model = ChatOpenAI(temperature=0)
-response = model.invoke(messages)
 
-print(response.content)
+def run_question(question: str) -> None:
+    # procesamos los documentos, que toma los documentos de la carpeta data/documents y los divide en chunks
+    processed_documents = chunks_pdfs()
+
+    # creamos el modelo de embedding
+    embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
+
+    # guardamos los documentos en la base de datos de chroma
+    db = save_to_chroma_db(processed_documents, embedding_model)
+
+    # obtenemos los 3 documentos mas relevantes
+    docs = db.similarity_search(question, k=3)
+    print(docs)
+    # unimos los documentos en un solo contexto
+    context = "\n\n---\n\n".join([doc.page_content for doc in docs])
+    print(context)
+
+    messages = prompt_template.format_messages(context=context, question=question)
+
+    # Import OpenAI model (temperature 0 para respuestas determinísticas)
+    model = ChatOpenAI(temperature=0)
+    response = model.invoke(messages)
+
+    print(response.content)
+
+
+if __name__ == "__main__":
+    # Permitir pasar la pregunta por CLI: python main.py "tu pregunta"
+    question = " ".join(sys.argv[1:]).strip() if len(sys.argv) > 1 else ""
+
+    # Si no viene por CLI, pedirla de forma interactiva
+    if not question:
+        try:
+            question = input("Escribe tu pregunta: ").strip()
+        except EOFError:
+            question = ""
+
+    if not question:
+        print("No se proporcionó ninguna pregunta.")
+        raise SystemExit(1)
+
+    run_question(question)
 
