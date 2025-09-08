@@ -1,0 +1,10 @@
+.env
+env/
+chroma/
+venv/
+data/
+
+
+# Ignore Python bytecode
+*.pyc
+__pycache__/
