@@ -29,21 +29,28 @@ print(docs)
 context = "\n\n---\n\n".join([doc.page_content for doc in docs])
 print(context)
 
-# platilla que nos permitirá hacer la pregunta al modelo
-PROMPT_TEMPLATE = """
-You have to answer the following question based on the following context:
-{context}
-Answer the following question: {question}
-Provide you detailed answer -
-Don't include non-relevant information.
-"""
+# plantilla que nos permitirá hacer la pregunta al modelo
+PROMPT_SYSTEM = (
+    "Eres un asistente que responde estrictamente con base en el contexto "
+    "proporcionado desde PDFs legales colombianos. Si la respuesta no está en el "
+    "contexto, responde exactamente: 'No tengo suficiente información en los documentos "
+    "para responder a esa pregunta.' Responde en español, de forma concisa y precisa. "
+    "No uses conocimiento externo."
+)
+PROMPT_HUMAN = (
+    "Contexto:\n{context}\n\n"
+    "Pregunta: {question}"
+)
 
-prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
-prompt = prompt_template.format(context=context, question=query)
+prompt_template = ChatPromptTemplate.from_messages([
+    ("system", PROMPT_SYSTEM),
+    ("human", PROMPT_HUMAN),
+])
+messages = prompt_template.format_messages(context=context, question=query)
 
-# Import OpenAI model
-model = ChatOpenAI()
-response = model.predict(prompt)
+# Import OpenAI model (temperature 0 para respuestas determinísticas)
+model = ChatOpenAI(temperature=0)
+response = model.invoke(messages)
 
-print(response)
+print(response.content)
 
